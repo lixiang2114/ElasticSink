@@ -25,6 +25,7 @@ wget https://download.oracle.com/otn/java/jdk/8u271-b09/61ae65e088624f5aaa0b1d2d
 2. 安装JDK-1.8.271
 
 tar -zxvf jdk-8u271-linux-x64.tar.gz -C /software/jdk1.8.0_271
+
 echo -e "JAVA_HOME=/software/jdk1.8.0_271\nPATH=$PATH:$JAVA_HOME/lib:$JAVA_HOME/bin\nexport PATH JAVA_HOME">>/etc/profile && source /etc/profile
 
 
@@ -63,7 +64,9 @@ wget https://github.com/lixiang2114/Software/raw/main/elasticsearch-6.8.8.zip
 2. 安装Elasticsearch
 
 useradd -lmd /home/elastic elastic
+
 unzip elasticsearch-6.8.8.zip -d /software/
+
 chown -R elastic:elastic /software/elasticsearch-6.8.8
 
 说明：
