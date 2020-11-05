@@ -1,7 +1,7 @@
 ### 插件开发背景
-​        ElasticSink是Flume流处理工具下基于Elasticsearch的一款Sink插件，由于Flume自带的Elasticsearch插件紧耦合到Elasticsearch的发行版本中，当Elasticsearch版本升级后，Flume自带的Elasticsearch插件不能及时更新版本（截止目前Flume1.9版本的Elasticsearch插件还是基于Elasticsearch5.X版本的），这导致Flume自带的Elasticsearch插件无法连接到高版本的Elasticsearch服务
+ElasticSink是Flume流处理工具下基于Elasticsearch的一款Sink插件，由于Flume自带的Elasticsearch插件紧耦合到Elasticsearch的发行版本中，当Elasticsearch版本升级后，Flume自带的Elasticsearch插件不能及时更新版本（截止目前Flume1.9版本的Elasticsearch插件还是基于Elasticsearch5.X版本的），这导致Flume自带的Elasticsearch插件无法连接到高版本的Elasticsearch服务
 
-​        后期基于Transport的TCP客户端将逐渐被遗弃和取代，Elastic官方不再推荐使用，因此重写ElasicSink插件不可能再基于TCP协议，目前推荐的是使用基于REST风格的Elastic客户端构建应用程序，而Height Level Rest Client强依赖于Elasticsearch的发型版本并随同Elasticsearch版本同步发布，因此，如果基于Height Level Rest Client来构建Flume-Sink插件可能会出现与Flume自带Elastic插件一样的结果，故本插件基于Low Level Rest Client构建，构建时选用的版本为Low Level Rest Client的最高版本elasticsearch-rest-client-7.9.3
+后期基于Transport的TCP客户端将逐渐被遗弃和取代，Elastic官方不再推荐使用，因此重写ElasicSink插件不可能再基于TCP协议，目前推荐的是使用基于REST风格的Elastic客户端构建应用程序，而Height Level Rest Client强依赖于Elasticsearch的发型版本并随同Elasticsearch版本同步发布，因此，如果基于Height Level Rest Client来构建Flume-Sink插件可能会出现与Flume自带Elastic插件一样的结果，故本插件基于Low Level Rest Client构建，构建时选用的版本为Low Level Rest Client的最高版本elasticsearch-rest-client-7.9.3
 
 
 
@@ -17,31 +17,39 @@ ElasticSink插件被设计成不依赖于任何Elasticsearch版本（即它与El
 ### 插件使用说明
 #### Flume工具及插件安装
 1. 下载JDK-1.8.271
+
 wget https://download.oracle.com/otn/java/jdk/8u271-b09/61ae65e088624f5aaa0b1d2d801acb16/jdk-8u271-linux-x64.tar.gz
 
 2. 安装JDK-1.8.271
+
 tar -zxvf jdk-8u271-linux-x64.tar.gz -C /software/jdk1.8.0_271
 echo -e "JAVA_HOME=/software/jdk1.8.0_271\nPATH=$PATH:$JAVA_HOME/lib:$JAVA_HOME/bin\nexport PATH JAVA_HOME">>/etc/profile && source /etc/profile
 
 3. 下载Flume-1.9.0
+
 wget https://github.com/lixiang2114/Software/raw/main/flume-1.9.0.zip
 
 4. 安装Flume-1.9.0
+
 unzip flume-1.9.0.zip -d /software/
 
 5. 下载插件ElasticSink-1.0
+
 wget https://github.com/lixiang2114/ElasticSink/raw/main/depends.zip
 
 6. 安装插件ElasticSink-1.0
+
 unzip depends.zip   &&   cp -a depends/*   /software/flume-1.9.0/lib/
 
 
 
 #### Elasticsearch服务安装
 1. 下载Elasticsearch
+
 wget https://github.com/lixiang2114/Software/raw/main/elasticsearch-6.8.8.zip
 
 2. 安装Elasticsearch
+
 useradd -lmd /home/elastic elastic
 unzip elasticsearch-6.8.8.zip -d /software/
 chown -R elastic:elastic /software/elasticsearch-6.8.8
