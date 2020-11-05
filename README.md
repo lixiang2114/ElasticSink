@@ -21,10 +21,12 @@ ElasticSink插件被设计成不依赖于任何Elasticsearch版本（即它与El
 wget https://download.oracle.com/otn/java/jdk/8u271-b09/61ae65e088624f5aaa0b1d2d801acb16/jdk-8u271-linux-x64.tar.gz
 
 
+
 2. 安装JDK-1.8.271
 
 tar -zxvf jdk-8u271-linux-x64.tar.gz -C /software/jdk1.8.0_271
 echo -e "JAVA_HOME=/software/jdk1.8.0_271\nPATH=$PATH:$JAVA_HOME/lib:$JAVA_HOME/bin\nexport PATH JAVA_HOME">>/etc/profile && source /etc/profile
+
 
 
 3. 下载Flume-1.9.0
@@ -32,14 +34,17 @@ echo -e "JAVA_HOME=/software/jdk1.8.0_271\nPATH=$PATH:$JAVA_HOME/lib:$JAVA_HOME/
 wget https://github.com/lixiang2114/Software/raw/main/flume-1.9.0.zip
 
 
+
 4. 安装Flume-1.9.0
 
 unzip flume-1.9.0.zip -d /software/
 
 
+
 5. 下载插件ElasticSink-1.0
 
 wget https://github.com/lixiang2114/ElasticSink/raw/main/depends.zip
+
 
 
 6. 安装插件ElasticSink-1.0
@@ -52,6 +57,7 @@ unzip depends.zip   &&   cp -a depends/*   /software/flume-1.9.0/lib/
 1. 下载Elasticsearch
 
 wget https://github.com/lixiang2114/Software/raw/main/elasticsearch-6.8.8.zip
+
 
 
 2. 安装Elasticsearch
