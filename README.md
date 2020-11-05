@@ -7,10 +7,10 @@ ElasticSink是Flume流处理工具下基于Elasticsearch的一款Sink插件，�
 ​      
 ​      
 ### ElasticSink插件特性
-1. 版本无关性
+1. 版本无关性  
 ElasticSink插件被设计成不依赖于任何Elasticsearch版本（即它与Elasticsearch版本无关），因为他是基于REST风格的HTTP协议实现，除了自身issue需要复验以外，不会因为任何版本问题导致其插件启动失败或是Elastic服务连接失效
 
-2. 插件扩展性
+2. 插件扩展性  
 这是一款Flume-Sink插件，它除了基于默认配置来完成一些简单的基础过滤功能，还提供了基于JAVA语言自定义的过滤器扩展，使用者可以根据自己的业务定制编写自己的个性化过滤器并将其放置到Flume安装目录下的filter目录中，同时配置好使用自定义过滤器，该插件即可回调自定义过滤器完成日志记录的过滤操作
   
     
