@@ -189,10 +189,16 @@ public interface SinkFilter {
 	public Map<String,String> doFilter(String record);
 	
 	/**
+	 * 插件上下文配置(可选实现)
+	 * @param config 配置
+	 */
+	default public void pluginConfig(Map<String,String> config){}
+	
+	/**
 	 * 过滤器上下文配置(可选实现)
 	 * @param config 配置
 	 */
-	public void contextConfig(Map<String,String> config);
+	default public void filterConfig(Properties properties){}
 }
 ```
 说明：  
@@ -271,7 +277,12 @@ public class LoggerFilter implements SinkFilter{
 
 	@Override
 	public void contextConfig(Map<String, String> config) {
-		//这里可以获取Flume配置文件中参数值来初始化本类成员变量
+		//这里可以获取插件配置文件中参数值来初始化本类成员变量
+	}
+	
+	@Override
+	public void filterConfig(Properties properties) {
+		//这里可以获取过滤器配置文件中参数值来初始化本类成员变量
 	}
 }
 ```
@@ -296,10 +307,17 @@ cp -a LoggerFilter.jar /software/flume-1.9.0/filter/lib/
     
   
 * 配置发布的过滤器  
-echo 'com.bfw.flume.plugin.ElasticSink=LoggerFilter'>>/software/flume-1.9.0/filter/filter.properties  
-  
-    
+```Text
+vi /software/flume-1.9.0/filter/filter.properties  
+type=LoggerFilter
+indexType=mylog
+indexName=mytest
+fieldSeparator=,
+fields=docId,level,msg
+```
 
+
+​    
 说明：  
 因为上述的LoggerFilter非常简单，就是一个字节码文件，没有定义包名（即存在于类路径下的默认包中），所以看到的就是一个类名，如果过滤器的入口类（实现SinkFilter接口的类）有包名则必须带上包名  
 
