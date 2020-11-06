@@ -88,8 +88,8 @@ public class DefaultSinkFilter implements SinkFilter{
 	}
 
 	@Override
-	public Map<String, String> doFilter(String record) {
-		HashMap<String,String> doc=new HashMap<String,String>();
+	public Map<String, Object> doFilter(String record) {
+		HashMap<String,Object> doc=new HashMap<String,Object>();
 		String[] fieldValues=fieldSeparator.split(record);
 		if(null==fieldList || 0==fieldList.length){
 			for(int i=0;i<fieldValues.length;doc.put("field"+i, fieldValues[i]),i++);
@@ -104,7 +104,7 @@ public class DefaultSinkFilter implements SinkFilter{
 	}
 
 	@Override
-	public void contextConfig(Map<String, String> config) {
+	public void pluginConfig(Map<String, String> config) {
 		docId=getParamValue(config,"docId", "docId");
 		indexType=getParamValue(config,"indexType", "logger");
 		indexName=getParamValue(config,"indexName", "fpdata");
@@ -123,7 +123,6 @@ public class DefaultSinkFilter implements SinkFilter{
 				fieldList[i]=fieldName;
 			}
 		}
-		
 	}
 	
 	/**

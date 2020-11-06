@@ -4,7 +4,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.util.Map;
@@ -36,6 +38,7 @@ import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 
 import com.bfw.flume.plugin.util.ClassLoaderUtil;
+import com.bfw.flume.plugin.util.TypeUtil;
 
 /**
  * @author Louis(LiXiang)
@@ -47,6 +50,11 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 	 * 批处理尺寸
 	 */
 	private static int batchSize;
+	
+	/**
+	 * 过滤器名称
+	 */
+	private static String filterName;
 	
 	/**
 	 * 集群名称
@@ -183,14 +191,14 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 				String indexType=indexTypeStr.trim();
 				if(0==indexType.length()) continue;
 				
-				Map<String,String> doc=(Map<String,String>)doFilter.invoke(filterObject, record);
+				Map<String,Object> doc=(Map<String,Object>)doFilter.invoke(filterObject, record);
 				if(null==doc || 0==doc.size()) continue;
 				
 				String docIdStr=(String)getDocId.invoke(filterObject);
 				String docId=null==docIdStr?"":docIdStr.trim();
 				String docIdVal=null;
 				
-				if(0!=docId.length() && 0!=(docIdVal=doc.getOrDefault(docId, "").trim()).length()){
+				if(0!=docId.length() && 0!=(docIdVal=doc.getOrDefault(docId, "").toString().trim()).length()){
 					push(indexName,indexType,docIdVal,doc);
 				}else{
 					pushByType(indexName,indexType,doc);
@@ -222,35 +230,8 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 	 */
 	@Override
 	public void configure(Context context) {
-		//装载自定义过滤器类路径
-		try {
-			addFilterClassPath();
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		}
-		
-		//获取自定义的过滤器类
-		Class<?> filterType=null;
-		try {
-			filterType = getFilterClass();
-		} catch (ClassNotFoundException | IOException e) {
-			throw new RuntimeException(e);
-		}
-		
-		if(null==filterType) throw new RuntimeException("Not Found Filter Class...");
-		
-		//初始化过滤器对象与接口表
-		try {
-			filterObject=filterType.newInstance();
-			getDocId=filterType.getDeclaredMethod("getDocId");
-			doFilter=filterType.getDeclaredMethod("doFilter",String.class);
-			getIndexType=filterType.getDeclaredMethod("getIndexType");
-			getIndexName=filterType.getDeclaredMethod("getIndexName");
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		}
-		
-		//初始化上下文参数
+		//获取上下文参数
+		filterName=getParamValue(context,"filterName", "filter");
 		clusterName=getParamValue(context,"clusterName", "ES-Cluster");
 		batchSize=Integer.parseInt(getParamValue(context,"batchSize", "100"));
 		String[] hosts=COMMA_REGEX.split(getParamValue(context,"hostList", "127.0.0.1:9200"));
@@ -278,21 +259,104 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 			}
 		}
 		
-		//初始化自定义参数
-		Method contextConfig=null;
+		//装载自定义过滤器类路径
 		try {
-			contextConfig = filterType.getDeclaredMethod("contextConfig",Map.class);
-		} catch (NoSuchMethodException | SecurityException e1) {}
-		
-		if(null==contextConfig) {
-			System.out.println("Warn: the filter may not be initialized,"+filterType.getName());
-			return;
+			addFilterClassPath();
+		} catch (Exception e) {
+			throw new RuntimeException(e);
 		}
 		
-		try {
-			contextConfig.invoke(filterObject, context.getParameters());
-		} catch (Exception e) {
+		//装载过滤器配置
+		Properties filterProperties=new Properties();
+		try{
+			System.out.println("INFO:====load filter config file:"+filterName+".properties");
+			InputStream inStream=ClassLoaderUtil.getClassPathFileStream(filterName+".properties");
+			filterProperties.load(inStream);
+		}catch(Exception e){
 			e.printStackTrace();
+		}
+		
+		//获取绑定的过滤器类
+		Class<?> filterType=null;
+		try {
+			String filterClass=(String)filterProperties.remove("type");
+			if(null==filterClass || 0==filterClass.trim().length()){
+				filterClass=DEFAULT_FILTER;
+				System.out.println("WARN:filterName=="+filterName+" the filter is empty or not found, the default filter will be used...");
+			}
+			System.out.println("INFO:====load filter class file:"+filterClass);
+			filterType=Class.forName(filterClass);
+		} catch (ClassNotFoundException e) {
+			throw new RuntimeException(e);
+		}
+		
+		//初始化过滤器对象与接口表
+		try {
+			filterObject=filterType.newInstance();
+			getDocId=filterType.getDeclaredMethod("getDocId");
+			doFilter=filterType.getDeclaredMethod("doFilter",String.class);
+			getIndexType=filterType.getDeclaredMethod("getIndexType");
+			getIndexName=filterType.getDeclaredMethod("getIndexName");
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+		
+		//手动初始化插件参数
+		try {
+			Method pluginConfig = filterType.getDeclaredMethod("pluginConfig",Map.class);
+			if(null!=pluginConfig) pluginConfig.invoke(filterObject, context.getParameters());
+		} catch (Exception e) {
+			System.out.println("Warn: "+filterType.getName()+" may not be initialized:contextConfig");
+		}
+		
+		//自动初始化过滤器参数
+		try {
+			initFilter(filterType,filterProperties);
+		} catch (ClassNotFoundException | IOException e) {
+			System.out.println("Warn: "+filterType.getName()+" may not be initialized:filterConfig");
+		}
+		
+		//手动初始化过滤器参数
+		try {
+			Method filterConfig = filterType.getDeclaredMethod("filterConfig",Properties.class);
+			if(null!=filterConfig) filterConfig.invoke(filterObject, filterProperties);
+		} catch (Exception e) {
+			System.out.println("Warn: "+filterType.getName()+" may not be initialized:filterConfig");
+		}
+	}
+	
+	/**
+	 * 设置过滤器参数
+	 * @param filterType 过滤类型
+	 * @param filterProperties 过滤器参数字典
+	 * @throws IOException
+	 * @throws ClassNotFoundException
+	 */
+	private static final void initFilter(Class<?> filterType,Properties filterProperties) throws IOException, ClassNotFoundException {
+		if(null==filterType || 0==filterProperties.size()) return;
+		for(Map.Entry<Object, Object> entry:filterProperties.entrySet()){
+			String key=((String)entry.getKey()).trim();
+			if(0==key.length()) continue;
+			Field field=null;
+			try {
+				field=filterType.getDeclaredField(key);
+				field.setAccessible(true);
+			} catch (NoSuchFieldException | SecurityException e) {
+				e.printStackTrace();
+			}
+			
+			if(null==field) continue;
+			Object value=TypeUtil.toType((String)entry.getValue(), field.getType());
+			
+			try {
+				if((field.getModifiers() & 0x00000008) == 0){
+					field.set(filterObject, value);
+				}else{
+					field.set(filterType, value);
+				}
+			} catch (IllegalArgumentException | IllegalAccessException e) {
+				e.printStackTrace();
+			}
 		}
 	}
 	
@@ -304,10 +368,15 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 	 */
 	private static final Class<?> getFilterClass() throws IOException, ClassNotFoundException {
 		InputStream inStream=ClassLoaderUtil.getClassPathFileStream("filter.properties");
-		Properties properties=new Properties();
-		properties.load(inStream);
-		String filterClass=properties.getProperty(ElasticSink.class.getName(),DEFAULT_FILTER).trim();
-		if(0==filterClass.length()) filterClass=DEFAULT_FILTER;
+		Properties filterProperties=new Properties();
+		filterProperties.load(inStream);
+		
+		String filterClass=filterProperties.getProperty(filterName);
+		if(null==filterClass || 0==filterClass.trim().length()){
+			filterClass=DEFAULT_FILTER;
+			System.out.println("WARN:filterName=="+filterName+" the filter is empty or not found, the default filter will be used...");
+		}
+		
 		return Class.forName(filterClass);
 	}
 	
@@ -319,10 +388,6 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 	private static final void addFilterClassPath() throws URISyntaxException, IOException{
 		File file = new File(new File(ElasticSink.class.getResource("/").toURI()).getParentFile(),"filter");
 		if(!file.exists()) file.mkdirs();
-		
-		File configFile=new File(file,"filter.properties");
-		if(!configFile.exists()) configFile.createNewFile();
-		
 		ClassLoaderUtil.addFileToCurrentClassPath(file, ElasticSink.class);
 	}
 	
@@ -376,14 +441,11 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 	 * @param document 文档对象 
 	 */
 	private static final void push(String indexName,String indexType,String docId,Object document) {
-		if(null==indexName || 0==indexName.trim().length()) return;
-		if(null==indexType || 0==indexType.trim().length()) indexType="_doc";
-		
 		StringBuilder uriBuilder=new StringBuilder("/");
-		uriBuilder.append(indexName.trim()).append("/");
-		uriBuilder.append(indexType.trim());
+		uriBuilder.append(indexName).append("/");
+		uriBuilder.append(indexType);
 		
-		if(null!=docId && 0!=docId.trim().length()) uriBuilder.append("/").append(docId.trim());
+		if(null!=docId && 0!=docId.trim().length()) uriBuilder.append("/").append(docId);
 		uriBuilder.append("?pretty");
 		
 		executePost(uriBuilder.toString(),document,new BasicHeader("Content-Type","application/json;charset=UTF-8"));

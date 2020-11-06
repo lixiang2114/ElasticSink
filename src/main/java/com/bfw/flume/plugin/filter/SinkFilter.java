@@ -1,6 +1,7 @@
 package com.bfw.flume.plugin.filter;
 
 import java.util.Map;
+import java.util.Properties;
 
 /**
  * @author Louis(LiXiang)
@@ -30,11 +31,17 @@ public interface SinkFilter {
 	 * @param record 文本记录
 	 * @return 文档字典对象
 	 */
-	public Map<String,String> doFilter(String record);
+	public Map<String,Object> doFilter(String record);
 	
 	/**
-	 * 过滤器上下文配置
+	 * 插件上下文配置(可选实现)
 	 * @param config 配置
 	 */
-	public void contextConfig(Map<String,String> config);
+	default public void pluginConfig(Map<String,String> config){}
+	
+	/**
+	 * 过滤器上下文配置(可选实现)
+	 * @param config 配置
+	 */
+	default public void filterConfig(Properties properties){}
 }
