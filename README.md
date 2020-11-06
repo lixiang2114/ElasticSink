@@ -6,7 +6,7 @@ ElasticSink是Flume流处理工具下基于Elasticsearch的一款Sink插件，�
 
 ​      
 ​      
-### ElasticSink插件特性
+### 插件功能特性
 1. 版本无关性  
 ElasticSink插件被设计成不依赖于任何Elasticsearch版本（即它与Elasticsearch版本无关），因为他是基于REST风格的HTTP协议实现，除了自身issue需要复验以外，不会因为任何版本问题导致其插件启动失败或是Elastic服务连接失效
 
