@@ -12,8 +12,9 @@ ElasticSink插件被设计成不依赖于任何Elasticsearch版本（即它与El
 
 2. 插件扩展性  
 这是一款Flume-Sink插件，它除了基于默认配置来完成一些简单的基础过滤功能，还提供了基于JAVA语言自定义的过滤器扩展，使用者可以根据自己的业务定制编写自己的个性化过滤器并将其放置到Flume安装目录下的filter目录中，同时配置好使用自定义过滤器，该插件即可回调自定义过滤器完成日志记录的过滤操作    
-    
-        
+   
+   ​     
+
 ​      
 ​        
 ### 插件使用说明
@@ -72,7 +73,7 @@ chown -R elastic:elastic /software/elasticsearch-6.8.8
 ​      
 
 #### ElasticSink插件基础使用
-**Note：**下面以抽取日志为例来说明插件的基本使用方法    
+**  Note：**下面以抽取日志为例来说明插件的基本使用方法    
 
 1. 编写Shell命令或脚本  
 ```Shell
@@ -322,3 +323,62 @@ fields=docId,level,msg
 因为上述的LoggerFilter非常简单，就是一个字节码文件，没有定义包名（即存在于类路径下的默认包中），所以看到的就是一个类名，如果过滤器的入口类（实现SinkFilter接口的类）有包名则必须带上包名  
 
 经过以上步骤之后，我们启动Flume服务，其ElasticSink插件就会自动调动我们自定义的过滤器类LoggerFilter来完成日志过滤处理了  
+
+
+
+​    
+##### 过滤器高级应用  
+ElasticSink插件支持多实例Sink复用，即不同的Sink实例可以重用ElasticSink插件，假如我们有两个Elasticsearch的集群构建，我们希望于按业务线或模块将日志过滤成不同的输出并推送到对应的两个不同Elasticsearch集群服务上，那么我们可以在Flume的任务流程配置中配置好两个不同的Sink实例，这两个Sink实例中的数据分别来自于不同的通道Channel，同时为两个不同的Sink实例指定不同的过滤器参数名（使用参数名filterName指定，默认提供的filterName参数值是filter）：    
+      
+```Text
+a1.sinks.k1.type=com.bfw.flume.plugin.ElasticSink
+a1.sinks.k1.hostList=192.168.162.129:9200,192.168.162.130:9200,192.168.162.131:9200
+a1.sinks.k1.clusterName=ES-Cluster
+a1.sinks.k1.filterName=filter01
+a1.sinks.k1.channel=c1  
+
+a1.sinks.k2.type=com.bfw.flume.plugin.ElasticSink
+a1.sinks.k2.hostList=192.168.162.132:9200,192.168.162.133:9200,192.168.162.134:9200
+a1.sinks.k2.clusterName=ES-Cluster
+a1.sinks.k2.filterName=filter02
+a1.sinks.k2.channel=c2    
+```
+
+然后在filter目录下指定对应的过滤器配置文件即可（根据约定优于配置的原则，我们定义的文件名需要与filterName参数值保持相同，比如默认文件名为：filter.properties），一个典型的过滤器配置形如下面给出的格式：    
+    
+```Text
+cat filter01.properties
+type=UserInfoFilter
+indexType=userInfo
+indexName=user
+fieldSeparator=,
+fields=userId,userName,group,balance    
+    
+        
+cat filter02.properties
+type=OrderInfoFilter
+indexType=orderInfo
+indexName=order
+fieldSeparator=,
+fields=orderId,orderName,price,userId      
+```
+
+最后还需要分别编写过滤器类UserInfoFilter和OrderInfoFilter，注意上面定义的这两个类都没有包名，这说明它们被放在默认的classpath的类路径根目录下，为了便于简化程序员的编码和部署工作，ElasticSink插件允许对一些非常简单的过滤操作只需要编写一个单类即可，编译好这个单类并将它拷贝到filter目录下即完成快捷部署。当然如果对于一些过滤非常复杂的操作（比如在过滤中涉及到一些业务逻辑的处理等），我们也可以启动一个完整的JAVA工程或Maven工程来编写过滤器，最后将其打包层jar拷贝到filter目录下，** 过滤器的编写参见上述章节的讲解 **    
+    
+        
+            
+**  备注： **    
+ElasticSink插件启动时会自动将Flume安装目录下的filter子目录递归装载到JVM的CLASSPATH路径下，因此在filter目录下的任何子目录都将存在于类路径的根目录下，所以，运维工程师或开发工程师可以随时将过滤器的配置文件、字节码文件或打包好的JAR文件等放入filter目录下的任何位置均可，EasticSink插件总是可以准确无误的找到并读取他们；这一点是非常重要的，它保证了放入此目录下的任何文件都将存在于CLASSPATH路径上，程序员自定义的过滤器可以毫无障碍的找到并实现过滤器的上下文参数配置；为了方便在配置和代码多了之后，其后期维护难度不至于过大，我们建议开发工程师和运维工程师应该在此目录下建立起更易于方便阅读的目录结构，然后再将过滤器的配置文件、过滤器字节码或过滤器打包JAR文件放置到相应的目录下，一个典型的目录结构设计形如下面的形式：    
+      
+```Shell
+[root@CC7 filter]# pwd
+/software/flume-1.9.0/filter
+[root@CC7 filter]# tree
+.
+├── conf
+│   └── LogFilter.properties
+└── lib
+    └── LoggerFilter.class
+
+2 directories, 2 files
+```
