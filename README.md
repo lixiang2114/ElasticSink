@@ -44,10 +44,9 @@ wget https://github.com/lixiang2114/ElasticSink/raw/main/depends.zip
    
 6. 安装插件ElasticSink-1.0  
 unzip depends.zip   &&   cp -a depends/*   /software/flume-1.9.0/lib/  
-  
     
-   
-      
+    
+​      
 #### Elasticsearch服务安装
 1. 下载Elasticsearch  
 wget https://github.com/lixiang2114/Software/raw/main/elasticsearch-6.8.8.zip  
@@ -58,17 +57,13 @@ wget https://github.com/lixiang2114/Software/raw/main/elasticsearch-6.8.8.zip
 useradd -lmd /home/elastic elastic  
 unzip elasticsearch-6.8.8.zip -d /software/  
 chown -R elastic:elastic /software/elasticsearch-6.8.8  
-  
     
-   
-
+    
 说明：    
-若搭建ES集群，请修改各个物理节点上配置文件：/software/elasticsearch-6.8.8/config/elasticsearch.yml，将其中的cluster.name参数统一成一个名字（默认为elasticsearch）、各物理节点上Elastic例程的node.name参数值在同一个Elastic集群中必须保持唯一；同时结合官网给出的配置调整系统内核参数（如：文件描述符、系统软硬进程数、堆栈参数及CPU核心数等）
+若搭建ES集群，请修改各个物理节点上配置文件：/software/elasticsearch-6.8.8/config/elasticsearch.yml，将其中的cluster.name参数统一成一个名字（默认为elasticsearch）、各物理节点上Elastic例程的node.name参数值在同一个Elastic集群中必须保持唯一；同时结合官网给出的配置调整系统内核参数（如：文件描述符、系统软硬进程数、堆栈参数及CPU核心数等）    
 
 
 ​      
-​      
-
 #### ElasticSink插件基础使用
 **  Note：**下面以抽取日志为例来说明插件的基本使用方法    
 
@@ -360,9 +355,9 @@ fieldSeparator=,
 fields=orderId,orderName,price,userId      
 ```
 
-最后还需要分别编写过滤器类UserInfoFilter和OrderInfoFilter，注意上面定义的这两个类都没有包名，这说明它们被放在默认的classpath的类路径根目录下，为了便于简化程序员的编码和部署工作，ElasticSink插件允许对一些非常简单的过滤操作只需要编写一个单类即可，编译好这个单类并将它拷贝到filter目录下即完成快捷部署。当然如果对于一些过滤非常复杂的操作（比如在过滤中涉及到一些业务逻辑的处理等），我们也可以启动一个完整的JAVA工程或Maven工程来编写过滤器，最后将其打包层jar拷贝到filter目录下，** 过滤器的编写参见上述章节的讲解 **    
+最后还需要分别编写过滤器类UserInfoFilter和OrderInfoFilter，注意上面定义的这两个类都没有包名，这说明它们被放在默认的classpath的类路径根目录下，为了便于简化程序员的编码和部署工作，ElasticSink插件允许对一些非常简单的过滤操作只需要编写一个单类即可，编译好这个单类并将它拷贝到filter目录下即完成快捷部署。当然如果对于一些过滤非常复杂的操作（比如在过滤中涉及到一些业务逻辑的处理等），我们也可以启动一个完整的JAVA工程或Maven工程来编写过滤器，最后将其打包成jar文件拷贝到filter目录下，** 过滤器的编写参见上述章节的讲解 **    
     
-程序员在自定义过滤器实现的过程中，其过滤器类中成员变量名应该与过滤器配置文件中的参数名保持一致，这将有利于ElasticSink插件自动化类的成员，同时在过滤器规范中有有以下两个接口是可选的实现：    
+程序员在自定义过滤器实现的过程中，其过滤器类中成员变量名应该与过滤器配置文件中的参数名保持一致，这将有利于ElasticSink插件自动化初始化类的成员，同时在过滤器规范中有有以下两个接口是可选的实现：    
 ```JAVA
 /**
 * 插件上下文配置(可选实现)
@@ -376,10 +371,10 @@ default public void pluginConfig(Map<String,String> config){}
 */
 default public void filterConfig(Properties properties){}
 ```
-    
+
 除非有特别的必要，否则程序员编写过滤器无需实现pluginConfig接口，该接口回调传入的字典参数来自于插件上下文配置（即flume进程启动时由-f参数显式指定的配置文件），而对于filterConfig接口的实现对于开发工程师而言也是可选的，为了尽量减轻开发工程师编码的复杂性，ElasticSink插件会在初始化插件上下文参数后自动为开发工程师定义的过滤器类完成一次基于过滤器成员变量的依赖注入，以保证在插件在回调过滤器的doFilter方法之前已经充分准备好了所需的过滤器参数，当然开发工程师也可以手动重写此方法以覆盖插件的初始化结果
             
-              
+​    
 **  备注： **    
 ElasticSink插件启动时会自动将Flume安装目录下的filter子目录递归装载到JVM的CLASSPATH路径下，因此在filter目录下的任何子目录都将存在于类路径的根目录下，所以，运维工程师或开发工程师可以随时将过滤器的配置文件、字节码文件或打包好的JAR文件等放入filter目录下的任何位置均可，EasticSink插件总是可以准确无误的找到并读取他们；这一点是非常重要的，它保证了放入此目录下的任何文件都将存在于CLASSPATH路径上，程序员自定义的过滤器可以毫无障碍的找到并实现过滤器的上下文参数配置；为了方便在配置和代码多了之后，其后期维护难度不至于过大，我们建议开发工程师和运维工程师应该在此目录下建立起更易于方便阅读的目录结构，然后再将过滤器的配置文件、过滤器字节码或过滤器打包JAR文件放置到相应的目录下，一个典型的目录结构设计形如下面的形式：    
       
