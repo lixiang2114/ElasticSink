@@ -149,7 +149,7 @@ for index in {1..100000};do echo "${index},info,this is my ${index} times test";
 ##### 过滤器接口规范简介
 不同的Sink组件可以对应到不同的插件过滤器，编写插件过滤器的接口规范如下：  
 ```JAVA
-package com.bfw.flume.plugin.filter;
+package com.bfw.flume.plugin.es.filter;
 
 import java.util.Map;
 
