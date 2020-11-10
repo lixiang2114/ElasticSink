@@ -1,4 +1,4 @@
-package com.bfw.flume.plugin.filter;
+package com.bfw.flume.plugin.es.filter;
 
 import java.util.Map;
 import java.util.Properties;

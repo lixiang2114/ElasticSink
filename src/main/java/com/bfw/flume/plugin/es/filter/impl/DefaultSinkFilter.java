@@ -1,10 +1,10 @@
-package com.bfw.flume.plugin.filter.impl;
+package com.bfw.flume.plugin.es.filter.impl;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-import com.bfw.flume.plugin.filter.SinkFilter;
+import com.bfw.flume.plugin.es.filter.SinkFilter;
 
 /**
  * @author Louis(LiXiang)

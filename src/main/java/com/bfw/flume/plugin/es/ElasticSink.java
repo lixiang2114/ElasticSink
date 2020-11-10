@@ -1,4 +1,4 @@
-package com.bfw.flume.plugin;
+package com.bfw.flume.plugin.es;
 
 import java.io.File;
 import java.io.IOException;
@@ -6,7 +6,6 @@ import java.io.InputStream;
 import java.io.StringWriter;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.util.Map;
@@ -24,12 +23,9 @@ import org.apache.flume.sink.AbstractSink;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
-import org.apache.http.ParseException;
-import org.apache.http.RequestLine;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.message.BasicHeader;
-import org.apache.http.util.EntityUtils;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RequestOptions;
@@ -37,8 +33,8 @@ import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 
-import com.bfw.flume.plugin.util.ClassLoaderUtil;
-import com.bfw.flume.plugin.util.TypeUtil;
+import com.bfw.flume.plugin.es.util.ClassLoaderUtil;
+import com.bfw.flume.plugin.es.util.TypeUtil;
 
 /**
  * @author Louis(LiXiang)
@@ -46,6 +42,11 @@ import com.bfw.flume.plugin.util.TypeUtil;
  */
 @SuppressWarnings({"unchecked","unused"})
 public class ElasticSink extends AbstractSink implements Configurable, BatchSizeSupported{
+	/**
+	 * 文档主键字段名
+	 */
+	private static String docId;
+	
 	/**
 	 * 批处理尺寸
 	 */
@@ -77,24 +78,19 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 	private static Method doFilter;
 	
 	/**
-	 * 文档ID名方法
-	 */
-	private static Method getDocId;
-	
-	/**
 	 * 过滤器对象
 	 */
 	private static Object filterObject;
 	
 	/**
-	 * 索引类型方法
+	 * 索引类型
 	 */
-	private static Method getIndexType;
+	private static String indexType;
 	
 	/**
-	 * 索引名方法
+	 * 索引名称
 	 */
-	private static Method getIndexName;
+	private static String indexName;
 	
 	/**
 	 * JSON工具
@@ -159,10 +155,6 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 	 */
 	@Override
 	public Status process() throws EventDeliveryException {
-		if(null==filterObject||null==doFilter||null==getDocId||null==getIndexType||null==getIndexName){
-			throw new RuntimeException("Error: Filter Not Initialized,Filter Object Is NULL...");
-		}
-		
 		Status status=Status.READY;
 		Channel channel=getChannel();
 		Transaction tx=channel.getTransaction();
@@ -179,25 +171,10 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 				String record=new String(event.getBody(),Charset.defaultCharset()).trim();
 				if(0==record.length()) continue;
 				
-				String indexNameStr=(String)getIndexName.invoke(filterObject);
-				if(null==indexNameStr) continue;
-				
-				String indexName=indexNameStr.trim();
-				if(0==indexName.length()) continue;
-				
-				String indexTypeStr=(String)getIndexType.invoke(filterObject);
-				if(null==indexTypeStr) continue;
-				
-				String indexType=indexTypeStr.trim();
-				if(0==indexType.length()) continue;
-				
 				Map<String,Object> doc=(Map<String,Object>)doFilter.invoke(filterObject, record);
 				if(null==doc || 0==doc.size()) continue;
 				
-				String docIdStr=(String)getDocId.invoke(filterObject);
-				String docId=null==docIdStr?"":docIdStr.trim();
 				String docIdVal=null;
-				
 				if(0!=docId.length() && 0!=(docIdVal=doc.getOrDefault(docId, "").toString().trim()).length()){
 					push(indexName,indexType,docIdVal,doc);
 				}else{
@@ -208,8 +185,8 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 			tx.commit();
 			return status;
 		}catch(Throwable e){
-		  tx.rollback();
-		  return Status.BACKOFF;
+			tx.rollback();
+			return Status.BACKOFF;
 		}finally{
 			tx.close();
 		}
@@ -234,30 +211,9 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 		filterName=getParamValue(context,"filterName", "filter");
 		clusterName=getParamValue(context,"clusterName", "ES-Cluster");
 		batchSize=Integer.parseInt(getParamValue(context,"batchSize", "100"));
-		String[] hosts=COMMA_REGEX.split(getParamValue(context,"hostList", "127.0.0.1:9200"));
-		hostList=new HttpHost[hosts.length];
-		for(int i=0;i<hosts.length;i++){
-			String host=hosts[i].trim();
-			if(0==host.length()) continue;
-			String[] ipAndPort=COLON_REGEX.split(host);
-			if(ipAndPort.length>=2){
-				String ip=ipAndPort[0].trim();
-				String port=ipAndPort[1].trim();
-				if(!IP_REGEX.matcher(ip).matches()) continue;
-				if(!NUMBER_REGEX.matcher(port).matches()) continue;
-				hostList[i]=new HttpHost(ip, Integer.parseInt(port), "http");
-				continue;
-			}
-			
-			if(ipAndPort.length<=0) continue;
-			
-			String unknow=ipAndPort[0].trim();
-			if(NUMBER_REGEX.matcher(unknow).matches()){
-				hostList[i]=new HttpHost("127.0.0.1", Integer.parseInt(unknow), "http");
-			}else if(IP_REGEX.matcher(unknow).matches()){
-				hostList[i]=new HttpHost(unknow, 9200, "http");
-			}
-		}
+		
+		//初始化主机地址列表
+		initHostAddress(context);
 		
 		//装载自定义过滤器类路径
 		try {
@@ -290,15 +246,10 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 			throw new RuntimeException(e);
 		}
 		
-		//初始化过滤器对象与接口表
 		try {
 			filterObject=filterType.newInstance();
-			getDocId=filterType.getDeclaredMethod("getDocId");
-			doFilter=filterType.getDeclaredMethod("doFilter",String.class);
-			getIndexType=filterType.getDeclaredMethod("getIndexType");
-			getIndexName=filterType.getDeclaredMethod("getIndexName");
-		} catch (Exception e) {
-			throw new RuntimeException(e);
+		} catch (InstantiationException | IllegalAccessException e1) {
+			throw new RuntimeException("Error:filter object instance failure!!!");
 		}
 		
 		//手动初始化插件参数
@@ -322,6 +273,69 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 			if(null!=filterConfig) filterConfig.invoke(filterObject, filterProperties);
 		} catch (Exception e) {
 			System.out.println("Warn: "+filterType.getName()+" may not be initialized:filterConfig");
+		}
+		
+		//初始化过滤器对象与接口表
+		initFilterFace(filterType);
+	}
+	
+	/**
+	 * 初始化主机地址列表
+	 * @param context 插件配置上下文
+	 */
+	private static final void initHostAddress(Context context){
+		String[] hosts=COMMA_REGEX.split(getParamValue(context,"hostList", "127.0.0.1:9200"));
+		hostList=new HttpHost[hosts.length];
+		for(int i=0;i<hosts.length;i++){
+			String host=hosts[i].trim();
+			if(0==host.length()) continue;
+			String[] ipAndPort=COLON_REGEX.split(host);
+			if(ipAndPort.length>=2){
+				String ip=ipAndPort[0].trim();
+				String port=ipAndPort[1].trim();
+				if(!IP_REGEX.matcher(ip).matches()) continue;
+				if(!NUMBER_REGEX.matcher(port).matches()) continue;
+				hostList[i]=new HttpHost(ip, Integer.parseInt(port), "http");
+				continue;
+			}
+			
+			if(ipAndPort.length<=0) continue;
+			
+			String unknow=ipAndPort[0].trim();
+			if(NUMBER_REGEX.matcher(unknow).matches()){
+				hostList[i]=new HttpHost("127.0.0.1", Integer.parseInt(unknow), "http");
+			}else if(IP_REGEX.matcher(unknow).matches()){
+				hostList[i]=new HttpHost(unknow, 9200, "http");
+			}
+		}
+	}
+	
+	/**
+	 * 初始化过滤器接口
+	 * @param dataBaseName 数据库名称
+	 * @param collectionName 集合名称
+	 * @param map 文档字典对象
+	 */
+	private static final void initFilterFace(Class<?> filterType) {
+		try{
+			Method getIndexName=filterType.getDeclaredMethod("getIndexName");
+			String indexNameStr=(String)getIndexName.invoke(filterObject);
+			if(null==indexNameStr || 0==(indexName=indexNameStr.trim()).length()) throw new RuntimeException("indexName can not be NULL!!!");
+			
+			Method getIndexType=filterType.getDeclaredMethod("getIndexType");
+			String indexTypeStr=(String)getIndexType .invoke(filterObject);
+			if(null==indexTypeStr || 0==(indexType=indexTypeStr.trim()).length()) throw new RuntimeException("indexType can not be NULL!!!");
+			doFilter=filterType.getDeclaredMethod("doFilter",String.class);
+		}catch(Exception e){
+			throw new RuntimeException(e);
+		}
+		
+		try{
+			Method getDocId=filterType.getDeclaredMethod("getDocId");
+			String docIdStr=(String)getDocId.invoke(filterObject);
+			docId=null==docIdStr?"":docIdStr.trim();
+		}catch(Exception e){
+			System.out.println("Warn:===no docid value was obtained, the default generated value will be used...");
 		}
 	}
 	
@@ -358,26 +372,6 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 				e.printStackTrace();
 			}
 		}
-	}
-	
-	/**
-	 * 获取过滤器类
-	 * @return 过滤类
-	 * @throws IOException 
-	 * @throws ClassNotFoundException 
-	 */
-	private static final Class<?> getFilterClass() throws IOException, ClassNotFoundException {
-		InputStream inStream=ClassLoaderUtil.getClassPathFileStream("filter.properties");
-		Properties filterProperties=new Properties();
-		filterProperties.load(inStream);
-		
-		String filterClass=filterProperties.getProperty(filterName);
-		if(null==filterClass || 0==filterClass.trim().length()){
-			filterClass=DEFAULT_FILTER;
-			System.out.println("WARN:filterName=="+filterName+" the filter is empty or not found, the default filter will be used...");
-		}
-		
-		return Class.forName(filterClass);
 	}
 	
 	/**
@@ -531,20 +525,5 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 		RequestOptions.Builder builder=request.getOptions().toBuilder();
 		for(Header header:headers) builder.addHeader(header.getName(), header.getValue());
 		 request.setOptions(builder);
-	}
-	
-	/**
-	 * 打印REST响应结果
-	 * @param response
-	 * @throws ParseException
-	 * @throws IOException
-	 */
-	private static void printResult(Response response) throws ParseException, IOException{
-		RequestLine requestLine=response.getRequestLine();
-		String contentTypeHeader=response.getHeader("content-type");
-		String responseBody=EntityUtils.toString(response.getEntity());
-		System.out.println("请求行:\n"+requestLine);
-		System.out.println("响应消息类型:\n"+contentTypeHeader);
-		System.out.println("响应消息体内容:\n"+responseBody);
 	}
 }

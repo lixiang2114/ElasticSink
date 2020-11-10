@@ -1,4 +1,4 @@
-package com.bfw.flume.plugin.util;
+package com.bfw.flume.plugin.es.util;
 
 import java.lang.reflect.Array;
 import java.sql.Time;

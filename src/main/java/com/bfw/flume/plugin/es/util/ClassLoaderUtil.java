@@ -1,4 +1,4 @@
-package com.bfw.flume.plugin.util;
+package com.bfw.flume.plugin.es.util;
 
 import java.io.File;
 import java.io.FileNotFoundException;

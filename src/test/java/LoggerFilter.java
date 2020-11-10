@@ -3,7 +3,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.regex.Pattern;
 
-import com.bfw.flume.plugin.filter.SinkFilter;
+import com.bfw.flume.plugin.es.filter.SinkFilter;
 
 /**
  * @author Louis(LiXiang)
