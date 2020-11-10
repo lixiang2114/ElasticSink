@@ -44,8 +44,9 @@ wget https://github.com/lixiang2114/ElasticSink/raw/main/depends.zip
    
 6. 安装插件ElasticSink-1.0  
 unzip depends.zip   &&   cp -a depends/*   /software/flume-1.9.0/lib/  
+   
     
-    
+
 ​      
 #### Elasticsearch服务安装
 1. 下载Elasticsearch  
@@ -57,8 +58,9 @@ wget https://github.com/lixiang2114/Software/raw/main/elasticsearch-6.8.8.zip
 useradd -lmd /home/elastic elastic  
 unzip elasticsearch-6.8.8.zip -d /software/  
 chown -R elastic:elastic /software/elasticsearch-6.8.8  
+   
     
-    
+
 说明：    
 若搭建ES集群，请修改各个物理节点上配置文件：/software/elasticsearch-6.8.8/config/elasticsearch.yml，将其中的cluster.name参数统一成一个名字（默认为elasticsearch）、各物理节点上Elastic例程的node.name参数值在同一个Elastic集群中必须保持唯一；同时结合官网给出的配置调整系统内核参数（如：文件描述符、系统软硬进程数、堆栈参数及CPU核心数等）    
 
@@ -99,7 +101,7 @@ a1.sources.s1.selector.type=replicating
 a1.sinks.k1.type=logger
 a1.sinks.k1.channel=c1
 
-a1.sinks.k2.type=com.bfw.flume.plugin.ElasticSink
+a1.sinks.k2.type=com.bfw.flume.plugin.es.ElasticSink
 a1.sinks.k2.hostList=192.168.162.129:9200
 a1.sinks.k2.fieldList=times,level,message
 a1.sinks.k2.clusterName=ES-Cluster
@@ -206,7 +208,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-import com.bfw.flume.plugin.filter.SinkFilter;
+import com.bfw.flume.plugin.es.filter.SinkFilter;
 
 /**
  * @author Louis(LiXiang)
@@ -323,13 +325,13 @@ fields=docId,level,msg
 ElasticSink插件支持多实例Sink复用，即不同的Sink实例可以重用ElasticSink插件，假如我们有两个Elasticsearch的集群构建，我们希望于按业务线或模块将日志过滤成不同的输出并推送到对应的两个不同Elasticsearch集群服务上，那么我们可以在Flume的任务流程配置中配置好两个不同的Sink实例，这两个Sink实例中的数据分别来自于不同的通道Channel，同时为两个不同的Sink实例指定不同的过滤器参数名（使用参数名filterName指定，默认提供的filterName参数值是filter）：    
       
 ```Text
-a1.sinks.k1.type=com.bfw.flume.plugin.ElasticSink
+a1.sinks.k1.type=com.bfw.flume.plugin.es.ElasticSink
 a1.sinks.k1.hostList=192.168.162.129:9200,192.168.162.130:9200,192.168.162.131:9200
 a1.sinks.k1.clusterName=ES-Cluster
 a1.sinks.k1.filterName=filter01
 a1.sinks.k1.channel=c1  
 
-a1.sinks.k2.type=com.bfw.flume.plugin.ElasticSink
+a1.sinks.k2.type=com.bfw.flume.plugin.es.ElasticSink
 a1.sinks.k2.hostList=192.168.162.132:9200,192.168.162.133:9200,192.168.162.134:9200
 a1.sinks.k2.clusterName=ES-Cluster
 a1.sinks.k2.filterName=filter02
