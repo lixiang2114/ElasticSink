@@ -23,8 +23,13 @@ import org.apache.flume.sink.AbstractSink;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.apache.http.message.BasicHeader;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.elasticsearch.client.Request;
@@ -32,6 +37,7 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
+import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback;
 
 import com.bfw.flume.plugin.es.util.ClassLoaderUtil;
 import com.bfw.flume.plugin.es.util.TypeUtil;
@@ -93,6 +99,16 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 	private static String indexName;
 	
 	/**
+	 * 会话中是否缓存认证信息(登录用户名/密码)
+	 */
+	private static boolean enableAuthCache;
+	
+	/**
+	 * 认证提供器
+	 */
+	private static CredentialsProvider credentialsProvider;
+	
+	/**
 	 * JSON工具
 	 */
 	private static final ObjectMapper MAPPER=new ObjectMapper();
@@ -121,7 +137,7 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 	/**
 	 * Sink默认过滤器
 	 */
-	private static final String DEFAULT_FILTER="com.bfw.flume.plugin.filter.impl.DefaultSinkFilter";
+	private static final String DEFAULT_FILTER="com.bfw.flume.plugin.es.filter.impl.DefaultSinkFilter";
 	
 	/**
 	 *  (non-Javadoc)
@@ -130,8 +146,22 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 	@Override
 	public synchronized void start() {
 		super.start();
+		
 		RestClientBuilder builder=RestClient.builder(hostList);
 		builder.setDefaultHeaders(new Header[]{new BasicHeader("Content-Type","application/json;charset=UTF-8")});
+		
+		if(null==credentialsProvider){
+			restClient=builder.build();
+			return;
+		}
+		
+		builder.setHttpClientConfigCallback(new HttpClientConfigCallback() {
+	        public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpClientBuilder) {
+	        	if(!enableAuthCache)httpClientBuilder.disableAuthCaching();
+	            return httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
+	        }
+	    });
+		
 		restClient=builder.build();
 	}
 
@@ -211,6 +241,7 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 		filterName=getParamValue(context,"filterName", "filter");
 		clusterName=getParamValue(context,"clusterName", "ES-Cluster");
 		batchSize=Integer.parseInt(getParamValue(context,"batchSize", "100"));
+		enableAuthCache=Boolean.parseBoolean(getParamValue(context,"enableAuthCache", "true"));
 		
 		//初始化主机地址列表
 		initHostAddress(context);
@@ -252,7 +283,7 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 			throw new RuntimeException("Error:filter object instance failure!!!");
 		}
 		
-		//手动初始化插件参数
+		//回调初始化插件参数
 		try {
 			Method pluginConfig = filterType.getDeclaredMethod("pluginConfig",Map.class);
 			if(null!=pluginConfig) pluginConfig.invoke(filterObject, context.getParameters());
@@ -267,7 +298,7 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 			System.out.println("Warn: "+filterType.getName()+" may not be initialized:filterConfig");
 		}
 		
-		//手动初始化过滤器参数
+		//回调初始化过滤器参数
 		try {
 			Method filterConfig = filterType.getDeclaredMethod("filterConfig",Properties.class);
 			if(null!=filterConfig) filterConfig.invoke(filterObject, filterProperties);
@@ -318,22 +349,34 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 	 */
 	private static final void initFilterFace(Class<?> filterType) {
 		try{
-			Method getIndexName=filterType.getDeclaredMethod("getIndexName");
-			String indexNameStr=(String)getIndexName.invoke(filterObject);
+			String indexNameStr=(String)filterType.getDeclaredMethod("getIndexName").invoke(filterObject);
 			if(null==indexNameStr || 0==(indexName=indexNameStr.trim()).length()) throw new RuntimeException("indexName can not be NULL!!!");
 			
-			Method getIndexType=filterType.getDeclaredMethod("getIndexType");
-			String indexTypeStr=(String)getIndexType .invoke(filterObject);
+			String indexTypeStr=(String)filterType.getDeclaredMethod("getIndexType") .invoke(filterObject);
 			if(null==indexTypeStr || 0==(indexType=indexTypeStr.trim()).length()) throw new RuntimeException("indexType can not be NULL!!!");
+			
 			doFilter=filterType.getDeclaredMethod("doFilter",String.class);
 		}catch(Exception e){
 			throw new RuntimeException(e);
 		}
 		
+		String userName=null;
+		String passWord=null;
 		try{
-			Method getDocId=filterType.getDeclaredMethod("getDocId");
-			String docIdStr=(String)getDocId.invoke(filterObject);
-			docId=null==docIdStr?"":docIdStr.trim();
+			userName=(String)filterType.getDeclaredMethod("getUsername").invoke(filterObject);
+			passWord=(String)filterType.getDeclaredMethod("getPassword").invoke(filterObject);
+		}catch(Exception e){
+			System.out.println("Warn:===authentication information not found, will login anonymously...");
+		}
+		
+		if(null!=userName && null!=passWord) {
+			credentialsProvider = new BasicCredentialsProvider();
+			credentialsProvider.setCredentials(AuthScope.ANY,new UsernamePasswordCredentials(userName,passWord));
+		}
+		
+		try{
+			String docIdStr=(String)filterType.getDeclaredMethod("getDocId").invoke(filterObject);
+			docId=null==docIdStr?null:docIdStr.trim();
 		}catch(Exception e){
 			System.out.println("Warn:===no docid value was obtained, the default generated value will be used...");
 		}
@@ -360,7 +403,15 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 			}
 			
 			if(null==field) continue;
-			Object value=TypeUtil.toType((String)entry.getValue(), field.getType());
+			
+			Object value=null;
+			try{
+				value=TypeUtil.toType((String)entry.getValue(), field.getType());
+			}catch(RuntimeException e){
+				e.printStackTrace();
+			}
+			
+			if(null==value) continue;
 			
 			try {
 				if((field.getModifiers() & 0x00000008) == 0){

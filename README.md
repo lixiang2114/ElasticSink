@@ -152,18 +152,13 @@ for index in {1..100000};do echo "${index},info,this is my ${index} times test";
 package com.bfw.flume.plugin.es.filter;
 
 import java.util.Map;
+import java.util.Properties;
 
 /**
  * @author Louis(LiXiang)
  * @description 自定义Sink过滤器接口规范
  */
 public interface SinkFilter {
-	/**
-	 * 获取文档ID字段名
-	 * @return ID字段名
-	 */
-	public String getDocId();
-	
 	/**
 	 * 获取文档索引类型
 	 * @return 索引类型
@@ -181,7 +176,25 @@ public interface SinkFilter {
 	 * @param record 文本记录
 	 * @return 文档字典对象
 	 */
-	public Map<String,String> doFilter(String record);
+	public Map<String,Object> doFilter(String record);
+	
+	/**
+	 * 获取文档ID字段名
+	 * @return ID字段名
+	 */
+	default public String getDocId(){return null;}
+	
+	/**
+	 * 获取登录密码
+	 * @return 密码
+	 */
+	default public String getPassword(){return null;}
+	
+	/**
+	 * 获取登录用户名
+	 * @return 用户名
+	 */
+	default public String getUsername(){return null;}
 	
 	/**
 	 * 插件上下文配置(可选实现)
@@ -359,8 +372,26 @@ fields=orderId,orderName,price,userId
 
 最后还需要分别编写过滤器类UserInfoFilter和OrderInfoFilter，注意上面定义的这两个类都没有包名，这说明它们被放在默认的classpath的类路径根目录下，为了便于简化程序员的编码和部署工作，ElasticSink插件允许对一些非常简单的过滤操作只需要编写一个单类即可，编译好这个单类并将它拷贝到filter目录下即完成快捷部署。当然如果对于一些过滤非常复杂的操作（比如在过滤中涉及到一些业务逻辑的处理等），我们也可以启动一个完整的JAVA工程或Maven工程来编写过滤器，最后将其打包成jar文件拷贝到filter目录下，** 过滤器的编写参见上述章节的讲解 **    
     
-程序员在自定义过滤器实现的过程中，其过滤器类中成员变量名应该与过滤器配置文件中的参数名保持一致，这将有利于ElasticSink插件自动化初始化类的成员，同时在过滤器规范中有有以下两个接口是可选的实现：    
+程序员在自定义过滤器实现的过程中，其过滤器类中成员变量名应该与过滤器配置文件中的参数名保持一致，这将有利于ElasticSink插件自动化初始化类的成员，同时在过滤器规范中有有以下几个接口是可选的实现：    
 ```JAVA
+/**
+* 获取文档ID字段名
+* @return ID字段名
+*/
+default public String getDocId(){return null;}
+
+/**
+* 获取登录密码
+* @return 密码
+*/
+default public String getPassword(){return null;}
+
+/**
+* 获取登录用户名
+* @return 用户名
+*/
+default public String getUsername(){return null;}
+
 /**
 * 插件上下文配置(可选实现)
 * @param config 配置

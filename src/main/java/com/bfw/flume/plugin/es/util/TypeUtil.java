@@ -257,7 +257,7 @@ public class TypeUtil {
 	 * @param R 目标类型
 	 * @return 转换值
 	 */
-	public static final <R> R toType(String value,Class<R> returnType){
+	public static final <R> R toType(String value,Class<R> returnType) {
 		if(null==value || null==returnType) return null;
 		
 		value=value.trim();

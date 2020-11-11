@@ -17,6 +17,16 @@ public class DefaultSinkFilter implements SinkFilter{
 	private static  String docId;
 	
 	/**
+	 * 登录MongoDB用户名
+	 */
+	private static String userName;
+	
+	/**
+	 * 登录MongoDB密码
+	 */
+	private static String passWord;
+	
+	/**
 	 * 记录字段列表
 	 * 按记录行从左到右区分顺序
 	 */
@@ -56,6 +66,16 @@ public class DefaultSinkFilter implements SinkFilter{
 	public String getDocId() {
 		return DefaultSinkFilter.docId;
 	}
+	
+	@Override
+	public String getPassword() {
+		return DefaultSinkFilter.passWord;
+	}
+
+	@Override
+	public String getUsername() {
+		return DefaultSinkFilter.userName;
+	}
 
 	@Override
 	public String getIndexType() {
@@ -67,26 +87,6 @@ public class DefaultSinkFilter implements SinkFilter{
 		return DefaultSinkFilter.indexName;
 	}
 	
-	public static void setDocId(String docId) {
-		DefaultSinkFilter.docId = docId;
-	}
-
-	public static void setFieldList(String[] fieldList) {
-		DefaultSinkFilter.fieldList = fieldList;
-	}
-
-	public static void setIndexType(String indexType) {
-		DefaultSinkFilter.indexType = indexType;
-	}
-
-	public static void setIndexName(String indexName) {
-		DefaultSinkFilter.indexName = indexName;
-	}
-
-	public static void setFieldSeparator(Pattern fieldSeparator) {
-		DefaultSinkFilter.fieldSeparator = fieldSeparator;
-	}
-
 	@Override
 	public Map<String, Object> doFilter(String record) {
 		HashMap<String,Object> doc=new HashMap<String,Object>();
@@ -105,7 +105,6 @@ public class DefaultSinkFilter implements SinkFilter{
 
 	@Override
 	public void pluginConfig(Map<String, String> config) {
-		docId=getParamValue(config,"docId", "docId");
 		indexType=getParamValue(config,"indexType", "logger");
 		indexName=getParamValue(config,"indexName", "fpdata");
 		fieldSeparator=Pattern.compile(getParamValue(config,"fieldSeparator","\\s+"));
@@ -121,6 +120,23 @@ public class DefaultSinkFilter implements SinkFilter{
 					continue;
 				}
 				fieldList[i]=fieldName;
+			}
+		}
+		
+		String docIdStr=config.get("docId");
+		if(null!=docIdStr) {
+			String tmp=docIdStr.trim();
+			if(0!=tmp.length()) docId=tmp;
+		}
+		
+		String passWordStr=config.get("passWord");
+		String userNameStr=config.get("userName");
+		if(null!=passWordStr && null!=userNameStr) {
+			String pass=passWordStr.trim();
+			String user=userNameStr.trim();
+			if(0!=pass.length() && 0!=user.length()) {
+				userName=user;
+				passWord=pass;
 			}
 		}
 	}
