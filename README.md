@@ -482,11 +482,12 @@ passWord=elastic
 
 2. 在自定义过滤器中覆盖以下方法并返回用户名和密码  
 ```
+import com.bfw.flume.plugin.es.filter.SinkFilter;
 /**
  * @author Louis(LiXiang)
- * @description 自定义Sink过滤器接口规范
+ * @description 自定义日志过滤器
  */
-public interface SinkFilter {
+public class LoggerFilter implements SinkFilter{
 	/**
 	 * 登录Elastic用户名
 	 */
