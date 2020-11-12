@@ -423,3 +423,95 @@ ElasticSink插件启动时会自动将Flume安装目录下的filter子目录递�
 
 2 directories, 2 files
 ```
+
+
+​    
+##### ElasticSink安全认证  
+从Elastic6.8版本开始，Elastic开源版本可通过XPack免费支持安全认证，如果你的存储介质中保存保存的是与用户信息无关的脱敏数据，同时存储服务部署于内网，则不建议使用安全认证，因为安全认证本身将给内网通信带来更多的附加网络阻力，如果在特定的场景下需要Elastic做安全认证则可以在Elstic服务中开启安全认证，这需要通过配置easticsearch.yml来实现：  
+```Shell
+[elastic@CC8 elasticsearch-6.8.8]$ whoami
+elastic
+[elastic@CC8 elasticsearch-6.8.8]$ pwd
+/software/elasticsearch-6.8.8
+[elastic@CC8 elasticsearch-6.8.8]$ vi config/elasticsearch.yml
+http.cors.enabled: true
+http.cors.allow-origin: "*"
+http.cors.allow-headers: Authorization
+xpack.security.enabled: true
+xpack.security.transport.ssl.enabled: true
+```
+然后再为elastic内建用户设定好密码即可：  
+```Shell
+[elastic@CC8 elasticsearch-6.8.8]$ bin/elasticsearch-setup-passwords interactive
+Initiating the setup of passwords for reserved users elastic,apm_system,kibana,logstash_system,beats_system,remote_monitoring_user.
+You will be prompted to enter passwords as the process progresses.
+Please confirm that you would like to continue [y/N]y
+
+Enter password for [elastic]: 
+Reenter password for [elastic]: 
+Enter password for [apm_system]: 
+Reenter password for [apm_system]:  
+Enter password for [kibana]: 
+Reenter password for [kibana]: 
+Enter password for [logstash_system]: 
+Reenter password for [logstash_system]: 
+Enter password for [beats_system]: 
+Reenter password for [beats_system]: 
+Enter password for [remote_monitoring_user]: 
+Reenter password for [remote_monitoring_user]: 
+Changed password for user [apm_system]
+Changed password for user [kibana]
+Changed password for user [logstash_system]
+Changed password for user [beats_system]
+Changed password for user [remote_monitoring_user]
+Changed password for user [elastic]
+```
+​    
+ElasticSink插件也支持Elastic-XPack的安全认证，这需要通过配置和过滤器来实现，具体操作步骤如下：  
+1. 在Flume插件配置文件或过滤器配置文件中增加登录认证信息  
+* 在插件配置文件中增加  
+```Text
+a1.sinks.k2.userName=elastic
+a1.sinks.k2.passWord=elastic  
+```
+* 在过滤器配置文件中增加  
+```Text
+userName=elastic
+passWord=elastic  
+```
+
+2. 在自定义过滤器中覆盖以下方法并返回用户名和密码  
+```
+/**
+ * @author Louis(LiXiang)
+ * @description 自定义Sink过滤器接口规范
+ */
+public interface SinkFilter {
+	/**
+	 * 登录Elastic用户名
+	 */
+	private static String userName;
+	
+	/**
+	 * 登录Elastic密码
+	 */
+	private static String passWord;
+	...............................
+	...............................
+	/**
+	 * 获取登录密码
+	 * @return 密码
+	 */
+	default public String getPassword(){
+		return userName;
+	}
+	
+	/**
+	 * 获取登录用户名
+	 * @return 用户名
+	 */
+	default public String getUsername(){
+		return passWord;
+	}
+}
+```

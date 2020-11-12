@@ -17,12 +17,12 @@ public class DefaultSinkFilter implements SinkFilter{
 	private static  String docId;
 	
 	/**
-	 * 登录MongoDB用户名
+	 * 登录Elastic用户名
 	 */
 	private static String userName;
 	
 	/**
-	 * 登录MongoDB密码
+	 * 登录Elastic密码
 	 */
 	private static String passWord;
 	
