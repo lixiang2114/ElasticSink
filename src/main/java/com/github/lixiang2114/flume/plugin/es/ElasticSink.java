@@ -1,4 +1,4 @@
-package com.bfw.flume.plugin.es;
+package com.github.lixiang2114.flume.plugin.es;
 
 import java.io.File;
 import java.io.IOException;
@@ -39,8 +39,8 @@ import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback;
 
-import com.bfw.flume.plugin.es.util.ClassLoaderUtil;
-import com.bfw.flume.plugin.es.util.TypeUtil;
+import com.github.lixiang2114.flume.plugin.es.util.ClassLoaderUtil;
+import com.github.lixiang2114.flume.plugin.es.util.TypeUtil;
 
 /**
  * @author Louis(LiXiang)
@@ -215,6 +215,7 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 			tx.commit();
 			return status;
 		}catch(Throwable e){
+			e.printStackTrace();
 			tx.rollback();
 			return Status.BACKOFF;
 		}finally{

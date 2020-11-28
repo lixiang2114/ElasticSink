@@ -1,16 +1,16 @@
-package com.bfw.flume.plugin.es.filter.impl;
+package com.github.lixiang2114.flume.plugin.es.filter.impl;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-import com.bfw.flume.plugin.es.filter.SinkFilter;
+import com.github.lixiang2114.flume.plugin.es.filter.ElasticSinkFilter;
 
 /**
  * @author Louis(LiXiang)
  * @description Elastic-Sink默认过滤器
  */
-public class DefaultSinkFilter implements SinkFilter{
+public class DefaultElasticSinkFilter implements ElasticSinkFilter{
 	/**
 	 * 文档ID字段名
 	 */
@@ -64,27 +64,27 @@ public class DefaultSinkFilter implements SinkFilter{
 
 	@Override
 	public String getDocId() {
-		return DefaultSinkFilter.docId;
+		return docId;
 	}
 	
 	@Override
 	public String getPassword() {
-		return DefaultSinkFilter.passWord;
+		return passWord;
 	}
 
 	@Override
 	public String getUsername() {
-		return DefaultSinkFilter.userName;
+		return userName;
 	}
 
 	@Override
 	public String getIndexType() {
-		return DefaultSinkFilter.indexType;
+		return indexType;
 	}
 
 	@Override
 	public String getIndexName() {
-		return DefaultSinkFilter.indexName;
+		return indexName;
 	}
 	
 	@Override

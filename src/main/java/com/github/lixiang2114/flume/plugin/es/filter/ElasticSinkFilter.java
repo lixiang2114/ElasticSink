@@ -1,4 +1,4 @@
-package com.bfw.flume.plugin.es.filter;
+package com.github.lixiang2114.flume.plugin.es.filter;
 
 import java.util.Map;
 import java.util.Properties;
@@ -7,7 +7,7 @@ import java.util.Properties;
  * @author Louis(LiXiang)
  * @description 自定义Sink过滤器接口规范
  */
-public interface SinkFilter {
+public interface ElasticSinkFilter {
 	/**
 	 * 获取文档索引类型
 	 * @return 索引类型

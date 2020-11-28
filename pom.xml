@@ -2,12 +2,12 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.bfw.flume.plugin.es</groupId>
-  <artifactId>ElasticSink</artifactId>
+  <groupId>com.github.lixiang2114</groupId>
+  <artifactId>Flume-Plugin-ElasticSink</artifactId>
   <version>1.0</version>
   <packaging>jar</packaging>
 
-  <name>ElasticSink</name>
+  <name>Flume-Plugin-ElasticSink</name>
   <url>http://maven.apache.org</url>
 
   <properties>
