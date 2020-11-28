@@ -38,8 +38,8 @@ unzip flume-1.9.0.zip -d /software/
     
    
 5. 下载插件ElasticSink-1.0  
-wget https://github.com/lixiang2114/ElasticSink/raw/main/depends.zip
-  
+wget https://github.com/lixiang2114/ElasticSink/raw/main/depends.zip  
+   
     
    
 6. 安装插件ElasticSink-1.0  
@@ -58,11 +58,12 @@ wget https://github.com/lixiang2114/Software/raw/main/elasticsearch-6.8.8.zip
 useradd -lmd /home/elastic elastic  
 unzip elasticsearch-6.8.8.zip -d /software/  
 chown -R elastic:elastic /software/elasticsearch-6.8.8  
+bash /software/elasticsearch-6.8.8/sbin/KernelSetting.sh  
    
     
 
 说明：    
-若搭建ES集群，请修改各个物理节点上配置文件：/software/elasticsearch-6.8.8/config/elasticsearch.yml，将其中的cluster.name参数统一成一个名字（默认为elasticsearch）、各物理节点上Elastic例程的node.name参数值在同一个Elastic集群中必须保持唯一；同时结合官网给出的配置调整系统内核参数（如：文件描述符、系统软硬进程数、堆栈参数及CPU核心数等）    
+若搭建ES集群，请修改各个物理节点上配置文件：/software/elasticsearch-6.8.8/config/elasticsearch.yml，将集群中所有节点的cluster.name参数统一成一个名字（默认为elasticsearch），各物理节点上Elastic例程的node.name参数值在同一个Elastic集群中必须保持唯一，最后将discovery.zen.ping.unicast.hosts参数设置为: [host1, host2,host3...]，   
 
 
 ​      
@@ -101,7 +102,7 @@ a1.sources.s1.selector.type=replicating
 a1.sinks.k1.type=logger
 a1.sinks.k1.channel=c1
 
-a1.sinks.k2.type=com.bfw.flume.plugin.es.ElasticSink
+a1.sinks.k2.type=com.github.lixiang2114.flume.plugin.es.ElasticSink
 a1.sinks.k2.hostList=192.168.162.129:9200
 a1.sinks.k2.fieldList=times,level,message
 a1.sinks.k2.clusterName=ES-Cluster
@@ -149,7 +150,7 @@ for index in {1..100000};do echo "${index},info,this is my ${index} times test";
 ##### 过滤器接口规范简介
 不同的Sink组件可以对应到不同的插件过滤器，编写插件过滤器的接口规范如下：  
 ```JAVA
-package com.bfw.flume.plugin.es.filter;
+package com.github.lixiang2114.flume.plugin.es.filter;
 
 import java.util.Map;
 import java.util.Properties;
@@ -158,7 +159,7 @@ import java.util.Properties;
  * @author Louis(LiXiang)
  * @description 自定义Sink过滤器接口规范
  */
-public interface SinkFilter {
+public interface ElasticSinkFilter {
 	/**
 	 * 获取文档索引类型
 	 * @return 索引类型
@@ -210,7 +211,7 @@ public interface SinkFilter {
 }
 ```
 说明：  
-编写插件过滤器通常需要实现SinkFilter接口，但这并不是必须的，考虑到程序员编码的灵活性，ElasticSink插件被设计成约定优于配置的原则，因此程序员只需要在自定义的过滤器实现类中提供相应的接口规范即可，ElasticSink总是可以根据接口规范检索到对应的接口签名并正确无误的去回调它   
+编写插件过滤器通常需要实现ElasticSinkFilter接口，但这并不是必须的，考虑到程序员编码的灵活性，ElasticSink插件被设计成约定优于配置的原则，因此程序员只需要在自定义的过滤器实现类中提供相应的接口规范即可，ElasticSink总是可以根据接口规范检索到对应的接口签名并正确无误的去回调它   
 
 
 ​    
@@ -221,13 +222,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-import com.bfw.flume.plugin.es.filter.SinkFilter;
+import com.github.lixiang2114.flume.plugin.es.filter.ElasticSinkFilter;
 
 /**
  * @author Louis(LiXiang)
  * @description 自定义日志过滤器
  */
-public class LoggerFilter implements SinkFilter{
+public class LoggerFilter implements ElasticSinkFilter{
 	/**
 	 * 空白正则式
 	 */
@@ -296,8 +297,10 @@ public class LoggerFilter implements SinkFilter{
 ```
 
 说明：  
+上面的接口ElasticSinkFilter来自于开发工具包FlumePluginFilter.jar，我们可以从github上下载它：
+wget https://github.com/lixiang2114/Document/raw/main/plugin/flume1.9/face/FlumePluginFilter.jar  
 可以使用Eclipse、Idea等IDE集成开发工具来完成上述编码和编译过程，如果过滤器项目是基于Maven构建的，还可以直接使用Maven来编译项目，如果过滤器简单到只有单个类文件也可以直接使用命令行编译：  
-javac -cp ElasticSink-1.0.jar LoggerFilter.java  
+javac -cp FlumePluginFilter.jar LoggerFilter.java  
 
 如果编译后的项目不止一个字节码文件则需要打包：  
 Maven： mvn package -f  /xxx/pom.xml  
@@ -327,7 +330,7 @@ fields=docId,level,msg
 
 ​    
 说明：  
-因为上述的LoggerFilter非常简单，就是一个字节码文件，没有定义包名（即存在于类路径下的默认包中），所以看到的就是一个类名，如果过滤器的入口类（实现SinkFilter接口的类）有包名则必须带上包名  
+因为上述的LoggerFilter非常简单，就是一个字节码文件，没有定义包名（即存在于类路径下的默认包中），所以看到的就是一个类名，如果过滤器的入口类（实现ElasticSinkFilter接口的类）有包名则必须带上包名  
 
 经过以上步骤之后，我们启动Flume服务，其ElasticSink插件就会自动调动我们自定义的过滤器类LoggerFilter来完成日志过滤处理了  
 
@@ -338,13 +341,13 @@ fields=docId,level,msg
 ElasticSink插件支持多实例Sink复用，即不同的Sink实例可以重用ElasticSink插件，假如我们有两个Elasticsearch的集群构建，我们希望于按业务线或模块将日志过滤成不同的输出并推送到对应的两个不同Elasticsearch集群服务上，那么我们可以在Flume的任务流程配置中配置好两个不同的Sink实例，这两个Sink实例中的数据分别来自于不同的通道Channel，同时为两个不同的Sink实例指定不同的过滤器参数名（使用参数名filterName指定，默认提供的filterName参数值是filter）：    
       
 ```Text
-a1.sinks.k1.type=com.bfw.flume.plugin.es.ElasticSink
+a1.sinks.k1.type=com.github.lixiang2114.flume.plugin.es.ElasticSink
 a1.sinks.k1.hostList=192.168.162.129:9200,192.168.162.130:9200,192.168.162.131:9200
 a1.sinks.k1.clusterName=ES-Cluster
 a1.sinks.k1.filterName=filter01
 a1.sinks.k1.channel=c1  
 
-a1.sinks.k2.type=com.bfw.flume.plugin.es.ElasticSink
+a1.sinks.k2.type=com.github.lixiang2114.flume.plugin.es.ElasticSink
 a1.sinks.k2.hostList=192.168.162.132:9200,192.168.162.133:9200,192.168.162.134:9200
 a1.sinks.k2.clusterName=ES-Cluster
 a1.sinks.k2.filterName=filter02
@@ -427,7 +430,7 @@ ElasticSink插件启动时会自动将Flume安装目录下的filter子目录递�
 
 ​    
 ##### ElasticSink安全认证  
-从Elastic6.8版本开始，Elastic开源版本可通过XPack免费支持安全认证，如果你的存储介质中保存保存的是与用户信息无关的脱敏数据，同时存储服务部署于内网，则不建议使用安全认证，因为安全认证本身将给内网通信带来更多的附加网络阻力，如果在特定的场景下需要Elastic做安全认证则可以在Elstic服务中开启安全认证，这需要通过配置easticsearch.yml来实现：  
+从Elastic6.8版本开始，Elastic开源版本可通过XPack免费支持安全认证，如果你的存储介质中保存的是与用户信息无关的脱敏数据，同时存储服务部署于内网，则不建议使用安全认证，因为安全认证本身将给内网通信带来更多的附加网络阻力，如果在特定的场景下需要Elastic做安全认证则可以在Elstic服务中开启安全认证，这需要通过配置easticsearch.yml来实现：  
 ```Shell
 [elastic@CC8 elasticsearch-6.8.8]$ whoami
 elastic
@@ -482,12 +485,12 @@ passWord=elastic
 
 2. 在自定义过滤器中覆盖以下方法并返回用户名和密码  
 ```
-import com.bfw.flume.plugin.es.filter.SinkFilter;
+import com.github.lixiang2114.flume.plugin.es.filter.ElasticSinkFilter;
 /**
  * @author Louis(LiXiang)
  * @description 自定义日志过滤器
  */
-public class LoggerFilter implements SinkFilter{
+public class LoggerFilter implements ElasticSinkFilter{
 	/**
 	 * 登录Elastic用户名
 	 */
