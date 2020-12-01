@@ -152,7 +152,7 @@ for index in {1..100000};do echo "${index},info,this is my ${index} times test";
 ```JAVA
 package com.github.lixiang2114.flume.plugin.es.filter;
 
-import java.util.Map;
+import java.util.HashMap;
 import java.util.Properties;
 
 /**
@@ -177,7 +177,7 @@ public interface ElasticSinkFilter {
 	 * @param record 文本记录
 	 * @return 文档字典对象
 	 */
-	public Map<String,Object> doFilter(String record);
+	public HashMap<String,Object>[] doFilter(String record);
 	
 	/**
 	 * 获取文档ID字段名
@@ -265,7 +265,7 @@ public class LoggerFilter implements ElasticSinkFilter{
 	}
 
 	@Override
-	public Map<String, String> doFilter(String record) { 
+	public HashMap<String, String>[] doFilter(String record) { 
 		//返回需要路由到Elastic服务的文档对象，若返回NULL或空字典则不会被路由到Elastic服务
 		
 		if(null==record) return null; //空日志无需收集
