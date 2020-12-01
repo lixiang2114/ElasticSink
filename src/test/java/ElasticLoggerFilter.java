@@ -1,10 +1,10 @@
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Properties;
 import java.util.regex.Pattern;
 
 import com.github.lixiang2114.flume.plugin.es.filter.ElasticSinkFilter;
 
+@SuppressWarnings("unchecked")
 public class ElasticLoggerFilter implements ElasticSinkFilter {
 	
 	private String[] fields;
@@ -41,13 +41,13 @@ public class ElasticLoggerFilter implements ElasticSinkFilter {
 		return this.indexName;
 	}
 
-	public Map<String, Object> doFilter(String record) {
+	public HashMap<String, Object>[] doFilter(String record) {
 		String[] fieldValues = commaRegex.split(record);
-	    HashMap map = new HashMap();
+	    HashMap<String, Object> map = new HashMap<String, Object>();
 	    map.put(this.fields[0], fieldValues[0].trim());
 	    map.put(this.fields[1], fieldValues[1].trim());
 	    map.put(this.fields[2], fieldValues[2].trim());
-	    return map;
+	    return new HashMap[]{map};
 	}
 
 	public void filterConfig(Properties properties) {

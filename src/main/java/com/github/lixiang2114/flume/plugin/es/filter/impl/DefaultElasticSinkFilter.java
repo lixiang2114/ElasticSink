@@ -10,6 +10,7 @@ import com.github.lixiang2114.flume.plugin.es.filter.ElasticSinkFilter;
  * @author Louis(LiXiang)
  * @description Elastic-Sink默认过滤器
  */
+@SuppressWarnings("unchecked")
 public class DefaultElasticSinkFilter implements ElasticSinkFilter{
 	/**
 	 * 文档ID字段名
@@ -88,7 +89,7 @@ public class DefaultElasticSinkFilter implements ElasticSinkFilter{
 	}
 	
 	@Override
-	public Map<String, Object> doFilter(String record) {
+	public HashMap<String,Object>[] doFilter(String record) {
 		HashMap<String,Object> doc=new HashMap<String,Object>();
 		String[] fieldValues=fieldSeparator.split(record);
 		if(null==fieldList || 0==fieldList.length){
@@ -100,7 +101,7 @@ public class DefaultElasticSinkFilter implements ElasticSinkFilter{
 			for(;i<fieldList.length;doc.put(fieldList[i], fieldValues[i]),i++);
 			for(;i<fieldValues.length;doc.put("field"+i, fieldValues[i]),i++);
 		}
-		return doc;
+		return new HashMap[]{doc};
 	}
 
 	@Override

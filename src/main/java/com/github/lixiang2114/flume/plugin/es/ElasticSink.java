@@ -8,6 +8,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.regex.Pattern;
@@ -201,14 +202,24 @@ public class ElasticSink extends AbstractSink implements Configurable, BatchSize
 				String record=new String(event.getBody(),Charset.defaultCharset()).trim();
 				if(0==record.length()) continue;
 				
-				Map<String,Object> doc=(Map<String,Object>)doFilter.invoke(filterObject, record);
-				if(null==doc || 0==doc.size()) continue;
+				HashMap<String,Object>[] docs=(HashMap<String,Object>[])doFilter.invoke(filterObject, record);
+				if(null==docs || 0==docs.length) continue;
 				
-				String docIdVal=null;
-				if(0!=docId.length() && 0!=(docIdVal=doc.getOrDefault(docId, "").toString().trim()).length()){
-					push(indexName,indexType,docIdVal,doc);
+				if(null==docId  || 0==docId.length()){
+					for(HashMap<String,Object> doc:docs){
+						if(null==doc || 0==doc.size()) continue;
+						pushByType(indexName,indexType,doc);
+					}
 				}else{
-					pushByType(indexName,indexType,doc);
+					String docIdVal=null;
+					for(HashMap<String,Object> doc:docs){
+						if(null==doc || 0==doc.size()) continue;
+						if(0==(docIdVal=doc.getOrDefault(docId, "").toString().trim()).length()){
+							pushByType(indexName,indexType,doc);
+						}else{
+							push(indexName,indexType,docIdVal,doc);
+						}
+					}
 				}
 			}
 			
